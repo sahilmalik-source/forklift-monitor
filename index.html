@@ -1,0 +1,933 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AIDUK CO. — Forklift Request Monitor</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg:            #f5f6f8;
+      --surface:       #ffffff;
+      --surface-2:     #f0f1f4;
+      --border:        #e2e4ea;
+      --border-dark:   #c8cad4;
+      --text-primary:  #0f1117;
+      --text-secondary:#6b7280;
+      --text-muted:    #9ca3af;
+      --accent:        #1a56db;
+      --accent-light:  #eff4ff;
+      --accent-border: #bfcfff;
+      --danger:        #dc2626;
+      --danger-light:  #fef2f2;
+      --danger-border: #fca5a5;
+      --warning:       #d97706;
+      --warning-light: #fffbeb;
+      --warning-border:#fcd34d;
+      --success:       #16a34a;
+      --success-light: #f0fdf4;
+      --success-border:#86efac;
+      --new-badge:     #7c3aed;
+      --new-light:     #f5f3ff;
+      --new-border:    #c4b5fd;
+      --shadow-sm:     0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+      --shadow-md:     0 4px 12px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04);
+      --shadow-lg:     0 12px 40px rgba(0,0,0,0.12), 0 4px 12px rgba(0,0,0,0.06);
+      --radius:        10px;
+      --radius-sm:     6px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      font-family: 'DM Sans', sans-serif;
+      color: var(--text-primary);
+      min-height: 100vh;
+      overflow: hidden;
+    }
+
+    @keyframes fadeIn    { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+    @keyframes slideUp   { from { opacity:0; transform:translateY(24px) scale(0.98); } to { opacity:1; transform:translateY(0) scale(1); } }
+    @keyframes pulseRed  { 0%,100% { box-shadow: var(--shadow-lg), 0 0 0 0 rgba(220,38,38,0.3); } 60% { box-shadow: var(--shadow-lg), 0 0 0 18px rgba(220,38,38,0); } }
+    @keyframes flashBg   { 0%,100% { background: rgba(220,38,38,0.06); } 50% { background: rgba(220,38,38,0.14); } }
+    @keyframes blink     { 0%,100% { opacity:1; } 50% { opacity:0.25; } }
+    @keyframes spin      { to { transform: rotate(360deg); } }
+    @keyframes cardIn    { from { opacity:0; transform:translateX(-10px); } to { opacity:1; transform:translateX(0); } }
+    @keyframes shimmer   { 0% { background-position:-400px 0; } 100% { background-position:400px 0; } }
+
+    ::-webkit-scrollbar       { width: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border-dark); border-radius: 99px; }
+
+    /* ══ SETUP MODAL ════════════════════════════ */
+    #setup-backdrop {
+      position: fixed; inset: 0; z-index: 500;
+      background: rgba(15,17,23,0.4);
+      backdrop-filter: blur(6px);
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    #setup-modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      box-shadow: var(--shadow-lg);
+      width: 500px;
+      max-width: calc(100vw - 32px);
+      animation: slideUp 0.3s cubic-bezier(0.16,1,0.3,1);
+      overflow: hidden;
+    }
+
+    .modal-header {
+      padding: 28px 32px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 16px;
+    }
+
+    .modal-icon {
+      width: 46px; height: 46px;
+      background: var(--accent-light);
+      border: 1px solid var(--accent-border);
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px; flex-shrink: 0;
+    }
+
+    .modal-title    { font-size: 17px; font-weight: 600; }
+    .modal-subtitle { font-size: 13px; color: var(--text-secondary); margin-top: 3px; }
+
+    .modal-body {
+      padding: 24px 32px;
+      display: flex; flex-direction: column; gap: 20px;
+    }
+
+    .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+    .field-group { display: flex; flex-direction: column; gap: 6px; }
+
+    .field-label {
+      font-size: 11px; font-weight: 600;
+      color: var(--text-secondary);
+      letter-spacing: 0.06em; text-transform: uppercase;
+    }
+
+    .field-input {
+      width: 100%; padding: 10px 14px;
+      font-family: 'DM Mono', monospace; font-size: 13px;
+      color: var(--text-primary);
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+    }
+    .field-input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(26,86,219,0.1);
+      background: var(--surface);
+    }
+    .field-input::placeholder { color: var(--text-muted); font-size: 12px; }
+
+    .field-hint { font-size: 11px; color: var(--text-muted); line-height: 1.4; }
+
+    .modal-footer {
+      padding: 16px 32px 24px;
+      display: flex; gap: 10px; justify-content: flex-end;
+      border-top: 1px solid var(--border);
+    }
+
+    .btn {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 13px; font-weight: 500;
+      padding: 9px 22px;
+      border-radius: var(--radius-sm);
+      cursor: pointer; border: none;
+      transition: all 0.15s;
+    }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-primary:hover { background: #1747c0; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(26,86,219,0.3); }
+    .btn-ghost { background: transparent; color: var(--text-secondary); border: 1px solid var(--border); }
+    .btn-ghost:hover { background: var(--surface-2); }
+    .btn-warning { background: var(--warning-light); color: var(--warning); border: 1px solid var(--warning-border); }
+    .btn-warning:hover { background: #fef3c7; }
+
+    /* ══ ALARM OVERLAY ══════════════════════════ */
+    #alarm-overlay {
+      display: none;
+      position: fixed; inset: 0; z-index: 400;
+      animation: flashBg 0.6s infinite;
+      align-items: center; justify-content: center;
+      cursor: pointer;
+    }
+    #alarm-overlay.active { display: flex; }
+
+    #alarm-box {
+      background: var(--surface);
+      border: 2px solid var(--danger);
+      border-radius: 18px;
+      padding: 44px 64px;
+      text-align: center;
+      animation: pulseRed 1.6s infinite, slideUp 0.3s cubic-bezier(0.16,1,0.3,1);
+      pointer-events: none;
+      max-width: 400px;
+    }
+
+    .alarm-icon  { font-size: 54px; margin-bottom: 16px; }
+    .alarm-title { font-size: 28px; font-weight: 600; color: var(--danger); letter-spacing: 0.04em; }
+    .alarm-sub   { font-size: 13px; color: var(--text-secondary); margin-top: 6px; }
+    .alarm-count {
+      display: inline-block; margin-top: 16px;
+      padding: 6px 20px;
+      background: var(--danger-light);
+      border: 1px solid var(--danger-border);
+      border-radius: 99px;
+      font-size: 13px; font-weight: 600; color: var(--danger);
+    }
+    .alarm-hint { margin-top: 20px; font-size: 11px; color: var(--text-muted); }
+
+    /* ══ HEADER ═════════════════════════════════ */
+    #header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0 28px; height: 62px;
+      display: flex; align-items: center; justify-content: space-between;
+      box-shadow: var(--shadow-sm);
+      position: relative; z-index: 10;
+    }
+
+    .brand { display: flex; align-items: center; gap: 12px; }
+
+    .brand-logo {
+      width: 36px; height: 36px; border-radius: 9px;
+      background: var(--accent); color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 17px;
+    }
+
+    .brand-name { font-size: 14px; font-weight: 600; letter-spacing: 0.02em; }
+    .brand-sub  { font-size: 10px; color: var(--text-muted); font-family: 'DM Mono', monospace; letter-spacing: 0.06em; margin-top: 1px; }
+
+    .header-right { display: flex; align-items: center; gap: 12px; }
+
+    #status-pill {
+      display: flex; align-items: center; gap: 7px;
+      padding: 6px 14px; border-radius: 99px;
+      border: 1px solid var(--success-border);
+      background: var(--success-light);
+      font-size: 12px; font-weight: 500; color: var(--success);
+      transition: all 0.3s;
+    }
+    #status-pill.has-pending {
+      border-color: var(--danger-border);
+      background: var(--danger-light); color: var(--danger);
+    }
+
+    #status-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--success); transition: background 0.3s;
+    }
+    #status-pill.has-pending #status-dot { background: var(--danger); animation: blink 0.8s infinite; }
+
+    #clock { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--text-muted); }
+
+    .hdr-btn {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 12px; font-weight: 500;
+      padding: 7px 14px; border-radius: var(--radius-sm);
+      cursor: pointer; transition: all 0.15s;
+      display: flex; align-items: center; gap: 6px;
+      border: 1px solid var(--border);
+      background: var(--surface); color: var(--text-secondary);
+    }
+    .hdr-btn:hover { background: var(--surface-2); border-color: var(--border-dark); }
+
+    #btn-dismiss {
+      border-color: var(--danger-border);
+      background: var(--danger-light); color: var(--danger);
+      display: none;
+    }
+    #btn-dismiss.visible { display: flex; }
+
+    /* ══ LAYOUT ═════════════════════════════════ */
+    #layout {
+      display: grid;
+      grid-template-columns: 1fr 300px;
+      height: calc(100vh - 62px);
+    }
+
+    /* ══ MAIN ═══════════════════════════════════ */
+    #main { padding: 24px 28px; overflow-y: auto; }
+
+    #stats {
+      display: grid; grid-template-columns: repeat(3,1fr);
+      gap: 12px; margin-bottom: 24px;
+    }
+
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px 22px;
+      box-shadow: var(--shadow-sm);
+      animation: fadeIn 0.4s ease both;
+      transition: box-shadow 0.2s;
+    }
+    .stat-card:hover { box-shadow: var(--shadow-md); }
+    .stat-card:nth-child(1) { animation-delay: 0.05s; }
+    .stat-card:nth-child(2) { animation-delay: 0.10s; }
+    .stat-card:nth-child(3) { animation-delay: 0.15s; }
+
+    .stat-label { font-size: 11px; font-weight: 600; color: var(--text-muted); letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 10px; }
+    .stat-val   { font-size: 34px; font-weight: 600; font-family: 'DM Mono', monospace; line-height: 1; }
+    .stat-sub   { font-size: 11px; color: var(--text-muted); margin-top: 5px; }
+
+    #toolbar {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 14px;
+    }
+
+    .section-title {
+      font-size: 11px; font-weight: 600;
+      color: var(--text-secondary);
+      letter-spacing: 0.06em; text-transform: uppercase;
+    }
+
+    .toolbar-actions { display: flex; gap: 8px; }
+
+    .tool-btn {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 12px; font-weight: 500;
+      padding: 7px 14px; border-radius: var(--radius-sm);
+      cursor: pointer; transition: all 0.15s;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .tool-btn-red  { border: 1px solid var(--danger-border); background: var(--danger-light); color: var(--danger); }
+    .tool-btn-red:hover  { background: #fee2e2; }
+    .tool-btn-grey { border: 1px solid var(--border); background: var(--surface); color: var(--text-secondary); }
+    .tool-btn-grey:hover { background: var(--surface-2); }
+
+    #queue { display: flex; flex-direction: column; gap: 10px; }
+
+    .req-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px 20px;
+      box-shadow: var(--shadow-sm);
+      animation: cardIn 0.3s ease both;
+      display: flex; align-items: center; justify-content: space-between; gap: 16px;
+      transition: box-shadow 0.2s, border-color 0.2s;
+    }
+    .req-card:hover { box-shadow: var(--shadow-md); border-color: var(--border-dark); }
+    .req-card.is-new { border-color: var(--new-border); background: var(--new-light); }
+    .req-card.is-new:hover { border-color: var(--new-badge); }
+    .req-card.wrong-resource { border-color: var(--danger); background: var(--danger-light); }
+
+    .req-left   { display: flex; align-items: center; gap: 14px; min-width: 0; }
+    .req-avatar {
+      width: 38px; height: 38px; border-radius: 9px;
+      background: var(--accent-light); border: 1px solid var(--accent-border);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 600; color: var(--accent);
+      font-family: 'DM Mono', monospace; flex-shrink: 0;
+    }
+    .req-card.is-new .req-avatar { background: var(--new-light); border-color: var(--new-border); color: var(--new-badge); }
+    .req-card.wrong-resource .req-avatar { background: var(--danger-light); border-color: var(--danger-border); color: var(--danger); }
+
+    .req-name { font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .req-meta { font-size: 11px; color: var(--text-muted); margin-top: 2px; font-family: 'DM Mono', monospace; }
+    .req-warning { color: var(--danger); font-size: 11px; font-weight: 600; margin-top: 4px; }
+    .req-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+
+    .badge {
+      font-size: 11px; font-weight: 500;
+      padding: 3px 10px; border-radius: 99px;
+    }
+    .badge-pending { background: var(--warning-light); border: 1px solid var(--warning-border); color: var(--warning); }
+    .badge-new     { background: var(--new-light);     border: 1px solid var(--new-border);     color: var(--new-badge); }
+    .badge-wrong   { background: var(--danger-light);  border: 1px solid var(--danger-border);  color: var(--danger); }
+
+    #empty-state {
+      text-align: center; padding: 64px 20px;
+      color: var(--text-muted); animation: fadeIn 0.4s ease;
+    }
+    .empty-icon  { font-size: 42px; margin-bottom: 14px; }
+    .empty-title { font-size: 14px; font-weight: 500; color: var(--text-secondary); }
+    .empty-sub   { font-size: 12px; margin-top: 4px; }
+
+    /* ══ SIDEBAR ════════════════════════════════ */
+    #sidebar {
+      background: var(--surface);
+      border-left: 1px solid var(--border);
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+
+    #sidebar-header {
+      padding: 18px 20px 14px;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+
+    #log-list {
+      flex: 1; overflow-y: auto;
+      padding: 10px 20px;
+      display: flex; flex-direction: column; gap: 0;
+    }
+
+    .log-entry {
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+      animation: fadeIn 0.25s ease;
+    }
+    .log-entry:last-child { border-bottom: none; }
+    .log-time { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--text-muted); margin-bottom: 3px; }
+    .log-msg  { font-size: 12px; color: var(--text-secondary); line-height: 1.45; }
+
+    #sidebar-footer {
+      padding: 14px 20px;
+      border-top: 1px solid var(--border);
+      background: var(--bg);
+    }
+
+    #poll-bar-wrap { height: 3px; background: var(--border); border-radius: 99px; overflow: hidden; margin-bottom: 8px; }
+    #poll-bar      { height: 100%; background: var(--accent); border-radius: 99px; transition: width 1s linear; }
+
+    #poll-info {
+      display: flex; justify-content: space-between;
+      font-size: 11px; color: var(--text-muted);
+      font-family: 'DM Mono', monospace;
+    }
+
+    .spinner {
+      width: 11px; height: 11px;
+      border: 2px solid var(--border); border-top-color: var(--accent);
+      border-radius: 50%; animation: spin 0.7s linear infinite;
+      display: inline-block; vertical-align: middle;
+    }
+
+    /* ══ ERROR BANNER ═══════════════════════════ */
+    #error-banner {
+      display: none;
+      background: var(--danger-light);
+      border: 1px solid var(--danger-border);
+      border-radius: var(--radius-sm);
+      padding: 12px 16px;
+      margin: 16px 28px 0;
+      font-size: 13px;
+      color: var(--danger);
+    }
+    #error-banner.active { display: block; }
+  </style>
+</head>
+<body>
+
+  <!-- SETUP MODAL -->
+  <div id="setup-backdrop">
+    <div id="setup-modal">
+      <div class="modal-header">
+        <div class="modal-icon">🔧</div>
+        <div>
+          <div class="modal-title">Connect to SharePoint</div>
+          <div class="modal-subtitle">Configure your list connection before monitoring begins</div>
+        </div>
+      </div>
+      <div class="modal-body">
+        <div class="field-group">
+          <label class="field-label">SharePoint Site URL</label>
+          <input class="field-input" id="input-site" type="url"
+            placeholder="https://company.sharepoint.com/sites/YourSite" />
+          <span class="field-hint">Full URL of your SharePoint site — no trailing slash</span>
+        </div>
+        <div class="field-group">
+          <label class="field-label">List Name</label>
+          <input class="field-input" id="input-list" type="text"
+            placeholder="e.g. ForkliftRequests" />
+          <span class="field-hint">Exact list name as it appears in SharePoint</span>
+        </div>
+        <div class="field-row">
+          <div class="field-group">
+            <label class="field-label">Status Column</label>
+            <input class="field-input" id="input-column" type="text"
+              placeholder="e.g. columns2" value="columns2" />
+            <span class="field-hint">Internal column name</span>
+          </div>
+          <div class="field-group">
+            <label class="field-label">Trigger Value</label>
+            <input class="field-input" id="input-value" type="text"
+              placeholder="e.g. Pending" />
+            <span class="field-hint">Alarm fires on this value</span>
+          </div>
+        </div>
+        <div style="background: var(--warning-light); border: 1px solid var(--warning-border); border-radius: var(--radius-sm); padding: 12px; margin-top: 8px;">
+          <div style="font-size: 12px; color: var(--warning); font-weight: 600;">⚠️ CORS Warning</div>
+          <div style="font-size: 11px; color: var(--text-secondary); margin-top: 4px; line-height: 1.4;">
+            If opening this file locally (file://), SharePoint connection will fail due to browser security. 
+            <strong>Upload this file to SharePoint</strong> and access it from there, or click "Demo Mode" below to test the UI without connection.
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="loadSaved()">Load Saved</button>
+        <button class="btn btn-warning" onclick="startDemoMode()">Demo Mode</button>
+        <button class="btn btn-primary" onclick="saveAndStart()">Start Monitoring →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ALARM OVERLAY -->
+  <div id="alarm-overlay" onclick="dismissAlarm()">
+    <div id="alarm-box">
+      <div class="alarm-icon">🚨</div>
+      <div class="alarm-title">New Request</div>
+      <div class="alarm-sub">A forklift request requires your attention</div>
+      <div class="alarm-count" id="alarm-count">1 Unread Request</div>
+      <div class="alarm-hint">Click anywhere to dismiss</div>
+    </div>
+  </div>
+
+  <!-- HEADER -->
+  <div id="header">
+    <div class="brand">
+      <div class="brand-logo">🏗️</div>
+      <div>
+        <div class="brand-name">AIDUK CO.</div>
+        <div class="brand-sub">FORKLIFT REQUEST MONITOR</div>
+      </div>
+    </div>
+    <div class="header-right">
+      <button class="hdr-btn" id="btn-dismiss" onclick="dismissAlarm()">✕ Dismiss Alarm</button>
+      <div id="status-pill">
+        <div id="status-dot"></div>
+        <span id="status-text">All Clear</span>
+      </div>
+      <div id="clock">--:--:--</div>
+      <button class="hdr-btn" onclick="openSetup()">⚙ Settings</button>
+    </div>
+  </div>
+
+  <!-- ERROR BANNER -->
+  <div id="error-banner">
+    <strong>Connection Error:</strong> <span id="error-message"></span>
+  </div>
+
+  <!-- LAYOUT -->
+  <div id="layout">
+    <div id="main">
+
+      <div id="stats">
+        <div class="stat-card">
+          <div class="stat-label">Pending</div>
+          <div class="stat-val" id="stat-pending" style="color:var(--warning)">—</div>
+          <div class="stat-sub">Awaiting action</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Unread</div>
+          <div class="stat-val" id="stat-new" style="color:var(--new-badge)">—</div>
+          <div class="stat-sub">Since last dismiss</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Seen Total</div>
+          <div class="stat-val" id="stat-total" style="color:var(--accent)">—</div>
+          <div class="stat-sub">This session</div>
+        </div>
+      </div>
+
+      <div id="toolbar">
+        <span class="section-title">Request Queue</span>
+        <div class="toolbar-actions">
+          <button class="tool-btn tool-btn-red"  onclick="testAlarm()">🔔 Test Alarm</button>
+          <button class="tool-btn tool-btn-grey" onclick="pollNow()">↻ Refresh Now</button>
+        </div>
+      </div>
+
+      <div id="queue"></div>
+      <div id="empty-state" style="display:none">
+        <div class="empty-icon">✅</div>
+        <div class="empty-title">No pending requests</div>
+        <div class="empty-sub">Monitoring is active — new requests will appear here automatically</div>
+      </div>
+
+    </div>
+
+    <div id="sidebar">
+      <div id="sidebar-header">
+        <span class="section-title">Activity Log</span>
+        <span id="poll-spinner" style="display:none"><span class="spinner"></span></span>
+      </div>
+      <div id="log-list">
+        <div class="log-entry">
+          <div class="log-msg" style="color:var(--text-muted);text-align:center;padding:16px 0">Waiting to connect...</div>
+        </div>
+      </div>
+      <div id="sidebar-footer">
+        <div id="poll-bar-wrap"><div id="poll-bar" style="width:100%"></div></div>
+        <div id="poll-info">
+          <span id="poll-label">Next poll in</span>
+          <span id="countdown">—</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const POLL_INTERVAL = 30;
+    let config         = { site:"", list:"", column:"columns2", value:"" };
+    let audioCtx       = null;
+    let alarmActive    = false;
+    let alarmInterval  = null;
+    let knownIds       = new Set();
+    let newIds         = new Set();
+    let currentItems   = [];
+    let countdownVal   = POLL_INTERVAL;
+    let countdownTimer = null;
+    let pollBarTimer   = null;
+    let isPolling      = false;
+    let demoMode       = false;
+
+    // ══ DEMO MODE ════════════════════════════════
+    function startDemoMode() {
+      demoMode = true;
+      document.getElementById("setup-backdrop").style.display = "none";
+      addLog("🎮 DEMO MODE: Using simulated data (no SharePoint connection)");
+      addLog("⚠️ To connect to real data, upload this file to SharePoint and reload");
+      
+      // Generate fake data
+      generateDemoData();
+      startMonitoring();
+    }
+
+    function generateDemoData() {
+      const demoItems = [
+        { Id: 1, Title: "Forklift needed - Zone A", Created: new Date(Date.now() - 3600000).toISOString(), Author: { Title: "John Doe" }, columns2: "Pending", Destination: "Zone-A" },
+        { Id: 2, Title: "Urgent - Loading Dock", Created: new Date(Date.now() - 7200000).toISOString(), Author: { Title: "Alice Smith" }, columns2: "Pending", Destination: "Loading-Dock-B" },
+        { Id: 3, Title: "Maintenance move", Created: new Date(Date.now() - 10800000).toISOString(), Author: { Title: "Bob Johnson" }, columns2: "Pending", Destination: "Repair-Bay" }
+      ];
+      
+      // Simulate receiving data
+      setTimeout(() => {
+        currentItems = demoItems;
+        demoItems.forEach(item => knownIds.add(item.Id));
+        document.getElementById("stat-pending").textContent = demoItems.length;
+        document.getElementById("stat-total").textContent = knownIds.size;
+        renderQueue(demoItems);
+        addLog(`✅ Demo: ${demoItems.length} simulated requests loaded`);
+      }, 500);
+    }
+
+    // ══ Setup ════════════════════════════════════
+    function openSetup() {
+      document.getElementById("setup-backdrop").style.display = "flex";
+      const s = loadConfig();
+      if (s) {
+        document.getElementById("input-site").value   = s.site   || "";
+        document.getElementById("input-list").value   = s.list   || "";
+        document.getElementById("input-column").value = s.column || "columns2";
+        document.getElementById("input-value").value  = s.value  || "";
+      }
+    }
+
+    function loadSaved() {
+      const s = loadConfig();
+      if (!s || !s.site) { alert("No saved configuration found."); return; }
+      document.getElementById("input-site").value   = s.site;
+      document.getElementById("input-list").value   = s.list;
+      document.getElementById("input-column").value = s.column;
+      document.getElementById("input-value").value  = s.value;
+    }
+
+    function saveAndStart() {
+      const site   = document.getElementById("input-site").value.trim().replace(/\/$/,"");
+      const list   = document.getElementById("input-list").value.trim();
+      const column = document.getElementById("input-column").value.trim();
+      const value  = document.getElementById("input-value").value.trim();
+      if (!site || !list || !column || !value) {
+        alert("Please fill in all fields before continuing."); return;
+      }
+      
+      // Check if running locally
+      if (window.location.protocol === 'file:') {
+        if (!confirm("⚠️ WARNING: You are opening this file locally (file://). SharePoint connection will fail due to CORS.\\n\\nClick OK to try anyway, or Cancel to use Demo Mode.")) {
+          startDemoMode();
+          return;
+        }
+      }
+      
+      config = { site, list, column, value };
+      saveConfig(config);
+      document.getElementById("setup-backdrop").style.display = "none";
+      startMonitoring();
+    }
+
+    function saveConfig(c)  { try { localStorage.setItem("forklift_cfg", JSON.stringify(c)); } catch(e){} }
+    function loadConfig()   { try { const s=localStorage.getItem("forklift_cfg"); return s?JSON.parse(s):null; } catch(e){return null;} }
+
+    window.addEventListener("DOMContentLoaded", () => {
+      const saved = loadConfig();
+      if (saved && saved.site) {
+        ["site","list","column","value"].forEach(k => {
+          if (saved[k]) document.getElementById("input-"+k).value = saved[k];
+        });
+      }
+    });
+
+    // ══ Audio ════════════════════════════════════
+    function initAudio() {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      return audioCtx;
+    }
+
+    function beep(freq=880, dur=0.18, vol=0.45) {
+      const ctx=initAudio(), osc=ctx.createOscillator(), gain=ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.frequency.value=freq; osc.type="sine";
+      gain.gain.setValueAtTime(vol, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime+dur);
+      osc.start(ctx.currentTime); osc.stop(ctx.currentTime+dur);
+    }
+
+    function playAlarmSound() {
+      [0,0.22,0.44,0.75,0.97,1.19].forEach((t,i) =>
+        setTimeout(()=>beep(i%2===0?980:740,0.2,0.5), t*1000));
+    }
+
+    // ══ Alarm ════════════════════════════════════
+    function triggerAlarm(count) {
+      alarmActive = true;
+      document.getElementById("alarm-overlay").classList.add("active");
+      document.getElementById("alarm-count").textContent =
+        count===1 ? "1 Unread Request" : `${count} Unread Requests`;
+      document.getElementById("btn-dismiss").classList.add("visible");
+      updateStatusPill(count);
+      playAlarmSound();
+      clearInterval(alarmInterval);
+      alarmInterval = setInterval(()=>{ if(alarmActive) playAlarmSound(); }, 9000);
+    }
+
+    function dismissAlarm() {
+      alarmActive = false; newIds.clear();
+      document.getElementById("alarm-overlay").classList.remove("active");
+      document.getElementById("btn-dismiss").classList.remove("visible");
+      clearInterval(alarmInterval);
+      document.getElementById("stat-new").textContent = "0";
+      updateStatusPill(0);
+      renderQueue(currentItems);
+    }
+
+    function testAlarm() { initAudio(); triggerAlarm(1); }
+
+    // ══ Resource Validation ═══════════════════════
+    const RESOURCE_RULES = {
+      "John": ["Zone-A", "Loading-Dock-A"],
+      "Alice": ["Assembly-Line", "Zone-B"],
+      "Bob": ["Repair-Bay", "Maintenance"]
+    };
+
+    function validateResourceAllocation(item) {
+      const authorName = item.Author?.Title?.split(" ")[0] || "Unknown";
+      const destination = item.Destination || item.Title || "";
+      const allowedZones = RESOURCE_RULES[authorName] || [];
+      const isValid = allowedZones.some(zone => 
+        destination.toLowerCase().includes(zone.toLowerCase())
+      );
+      
+      return {
+        valid: isValid,
+        message: isValid ? null : `⚠️ WRONG RESOURCE: ${authorName} cannot request ${destination}`
+      };
+    }
+
+    // ══ Fetch ════════════════════════════════════
+    async function fetchPendingRequests() {
+      if (demoMode) {
+        // Return demo data with slight variations
+        return currentItems.map(item => ({
+          ...item,
+          Created: new Date(item.Created).toISOString()
+        }));
+      }
+
+      const {site,list,column,value} = config;
+      const url =
+        `${site}/_api/web/lists/getbytitle('${encodeURIComponent(list)}')/items` +
+        `?$filter=${column} eq '${value}'` +
+        `&$orderby=Created desc&$top=50` +
+        `&$select=Id,Title,Created,Author/Title,${column},Destination&$expand=Author`;
+
+      try {
+        const res = await fetch(url, {
+          headers: { "Accept": "application/json;odata=verbose" },
+          credentials: "include"
+        });
+        
+        if (!res.ok) {
+          if (res.status === 401) throw new Error("Unauthorized (401) - Check if you're logged into SharePoint");
+          if (res.status === 404) throw new Error("List not found (404) - Check list name and site URL");
+          if (res.status === 400) throw new Error("Bad Request (400) - Check column name internal name");
+          throw new Error(`SharePoint returned HTTP ${res.status}`);
+        }
+        
+        const data = await res.json();
+        return data.d.results;
+      } catch (err) {
+        if (err.message.includes("Failed to fetch") || err.message.includes("CORS")) {
+          throw new Error("CORS/Network error - File must be hosted in SharePoint, not opened locally");
+        }
+        throw err;
+      }
+    }
+
+    // ══ Poll ═════════════════════════════════════
+    async function poll() {
+      if (isPolling) return;
+      isPolling = true;
+      document.getElementById("poll-spinner").style.display = "inline";
+      document.getElementById("poll-label").textContent = "Polling...";
+      addLog("🔄 Checking SharePoint list...");
+
+      try {
+        const items = await fetchPendingRequests();
+        currentItems = items;
+        document.getElementById("error-banner").classList.remove("active");
+
+        const freshIds = [];
+        items.forEach(item => {
+          if (!knownIds.has(item.Id)) {
+            freshIds.push(item.Id);
+            newIds.add(item.Id);
+            knownIds.add(item.Id);
+          }
+        });
+
+        document.getElementById("stat-pending").textContent = items.length;
+        document.getElementById("stat-new").textContent     = newIds.size;
+        document.getElementById("stat-total").textContent   = knownIds.size;
+
+        renderQueue(items);
+
+        if (freshIds.length > 0) {
+          addLog(`🔔 ${freshIds.length} new request(s) detected`);
+          triggerAlarm(newIds.size);
+        } else {
+          addLog(`✅ No new requests · ${items.length} pending`);
+          updateStatusPill(newIds.size);
+        }
+      } catch(err) {
+        const errorMsg = err.message;
+        addLog(`⚠️ ${errorMsg}`);
+        document.getElementById("error-message").textContent = errorMsg;
+        document.getElementById("error-banner").classList.add("active");
+        console.error(err);
+      }
+
+      isPolling = false;
+      document.getElementById("poll-spinner").style.display = "none";
+      document.getElementById("poll-label").textContent = "Next poll in";
+      resetCountdown();
+    }
+
+    function pollNow() {
+      clearInterval(countdownTimer); clearInterval(pollBarTimer); poll();
+    }
+
+    // ══ Countdown ════════════════════════════════
+    function resetCountdown() {
+      countdownVal = POLL_INTERVAL;
+      clearInterval(countdownTimer); clearInterval(pollBarTimer);
+      document.getElementById("poll-bar").style.width = "100%";
+      document.getElementById("countdown").textContent = POLL_INTERVAL+"s";
+
+      pollBarTimer = setInterval(()=>{
+        const pct = (countdownVal/POLL_INTERVAL)*100;
+        document.getElementById("poll-bar").style.width = pct+"%";
+      }, 1000);
+
+      countdownTimer = setInterval(()=>{
+        countdownVal--;
+        document.getElementById("countdown").textContent = countdownVal+"s";
+        if (countdownVal <= 0) {
+          clearInterval(countdownTimer); clearInterval(pollBarTimer); poll();
+        }
+      }, 1000);
+    }
+
+    // ══ Render ═══════════════════════════════════
+    function renderQueue(items) {
+      const queue = document.getElementById("queue");
+      const empty = document.getElementById("empty-state");
+      if (!items || items.length===0) {
+        queue.innerHTML = ""; empty.style.display = "block"; return;
+      }
+      empty.style.display = "none";
+      queue.innerHTML = items.map((item, idx) => {
+        const isNew    = newIds.has(item.Id);
+        const created  = new Date(item.Created).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"});
+        const author   = item.Author ? item.Author.Title : "Unknown";
+        const initials = author.split(" ").map(w=>w[0]).join("").slice(0,2).toUpperCase();
+        
+        // Resource validation
+        const validation = validateResourceAllocation(item);
+        const isWrongResource = !validation.valid;
+
+        return `
+          <div class="req-card ${isNew?"is-new":""} ${isWrongResource?"wrong-resource":""}" style="animation-delay:${idx*0.05}s">
+            <div class="req-left">
+              <div class="req-avatar">${initials}</div>
+              <div>
+                <div class="req-name">${item.Title || "Request #"+item.Id}</div>
+                <div class="req-meta">${author} · ${created}</div>
+                ${isWrongResource ? `<div class="req-warning">${validation.message}</div>` : ""}
+              </div>
+            </div>
+            <div class="req-right">
+              ${isNew?'<span class="badge badge-new">New</span>':""}
+              ${isWrongResource?'<span class="badge badge-wrong">Wrong Resource</span>':""}
+              <span class="badge badge-pending">${demoMode ? "Demo" : config.value}</span>
+            </div>
+          </div>`;
+      }).join("");
+    }
+
+    // ══ Log ══════════════════════════════════════
+    function addLog(msg) {
+      const list = document.getElementById("log-list");
+      const ph = list.querySelector(".log-entry:only-child");
+      if (ph && ph.querySelector("[style*='text-align:center']")) ph.remove();
+
+      const time = new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit",second:"2-digit"});
+      const el = document.createElement("div");
+      el.className = "log-entry";
+      el.innerHTML = `<div class="log-time">${time}</div><div class="log-msg">${msg}</div>`;
+      list.insertBefore(el, list.firstChild);
+      while (list.children.length > 60) list.removeChild(list.lastChild);
+    }
+
+    // ══ Status pill ══════════════════════════════
+    function updateStatusPill(count) {
+      const pill = document.getElementById("status-pill");
+      const text = document.getElementById("status-text");
+      if (count>0) {
+        pill.classList.add("has-pending");
+        text.textContent = `${count} Unread`;
+      } else {
+        pill.classList.remove("has-pending");
+        text.textContent = "All Clear";
+      }
+    }
+
+    // ══ Start ════════════════════════════════════
+    function startMonitoring() {
+      knownIds.clear(); newIds.clear(); currentItems = [];
+      clearInterval(countdownTimer); clearInterval(pollBarTimer);
+      poll();
+    }
+
+    function updateClock() {
+      document.getElementById("clock").textContent =
+        new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit",second:"2-digit"});
+    }
+    updateClock();
+    setInterval(updateClock, 1000);
+  </script>
+</body>
+</html>
